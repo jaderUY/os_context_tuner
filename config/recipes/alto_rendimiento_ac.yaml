@@ -1,0 +1,8 @@
+name: alto_rendimiento_ac
+priority: 20
+enabled: true
+conditions:
+  ac_online: true
+  min_battery_percent: 20
+settings:
+  power_plan: high_performance

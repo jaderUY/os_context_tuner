@@ -1,0 +1,8 @@
+name: ahorro_bateria
+priority: 30
+enabled: true
+conditions:
+  ac_online: false
+  max_battery_percent: 30
+settings:
+  power_plan: power_saver
