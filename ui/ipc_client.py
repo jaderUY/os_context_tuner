@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict
 
 import pywintypes
+import win32con
 import win32file
 import win32pipe
 
@@ -21,7 +22,7 @@ class NamedPipeIPCClient:
             win32pipe.WaitNamedPipe(self.pipe_name, self.timeout_ms)
             handle = win32file.CreateFile(
                 self.pipe_name,
-                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                win32con.GENERIC_READ | win32con.GENERIC_WRITE,
                 0,
                 None,
                 win32file.OPEN_EXISTING,

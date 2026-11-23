@@ -4,8 +4,9 @@ from typing import Callable, Dict, Any, Optional
 
 import pywintypes
 import win32event
-import win32file
+import win32con
 import win32pipe
+import win32process
 import win32security
 
 PIPE_NAME = r"\\.\pipe\OSContextTunerPipe"
@@ -26,15 +27,15 @@ def construir_security_attributes_estricto() -> win32security.SECURITY_ATTRIBUTE
     sid_admins = win32security.ConvertStringSidToSid("S-1-5-32-544")      # Administrators
 
     # Permisos genéricos de lectura y escritura en pipe
-    pipe_rw_access = win32file.GENERIC_READ | win32file.GENERIC_WRITE
+    pipe_rw_access = win32con.GENERIC_READ | win32con.GENERIC_WRITE
 
-    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, win32file.GENERIC_ALL, sid_system)
-    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, win32file.GENERIC_ALL, sid_admins)
+    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, sid_system)
+    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, win32con.GENERIC_ALL, sid_admins)
 
     # Opcional: permitir al usuario que lanza el proceso de prueba si no es SYSTEM/Admin
     try:
         token = win32security.OpenProcessToken(
-            win32security.GetCurrentProcess(), win32security.TOKEN_QUERY
+            win32process.GetCurrentProcess(), win32security.TOKEN_QUERY
         )
         user_sid, _ = win32security.GetTokenInformation(token, win32security.TokenUser)
         dacl.AddAccessAllowedAce(win32security.ACL_REVISION, pipe_rw_access, user_sid)
@@ -103,18 +104,18 @@ class NamedPipeIPCServer:
                             if rc == win32event.WAIT_OBJECT_0:
                                 break
                         if self._stop_event.is_set():
-                            win32file.CancelIoEx(pipe_handle, overlapped)
+                            win32con.CancelIoEx(pipe_handle, overlapped)
                             break
                     else:
                         raise
                 finally:
-                    win32file.CloseHandle(connect_event)
+                    win32con.CloseHandle(connect_event)
 
                 if self._stop_event.is_set():
                     break
 
                 # Leer petición del cliente
-                _, raw_data = win32file.ReadFile(pipe_handle, BUFFER_SIZE)
+                _, raw_data = win32con.ReadFile(pipe_handle, BUFFER_SIZE)
                 if raw_data:
                     try:
                         request_data = json.loads(raw_data.decode("utf-8"))
@@ -125,7 +126,7 @@ class NamedPipeIPCServer:
                         response_data = {"status": "error", "message": str(exc)}
 
                     encoded_resp = json.dumps(response_data).encode("utf-8")
-                    win32file.WriteFile(pipe_handle, encoded_resp)
+                    win32con.WriteFile(pipe_handle, encoded_resp)
 
                 win32pipe.FlushFileBuffers(pipe_handle)
 
@@ -138,7 +139,7 @@ class NamedPipeIPCServer:
                         win32pipe.DisconnectNamedPipe(pipe_handle)
                     except pywintypes.error:
                         pass
-                    win32file.CloseHandle(pipe_handle)
+                    win32con.CloseHandle(pipe_handle)
 
     def start(self):
         if self._thread and self._thread.is_alive():

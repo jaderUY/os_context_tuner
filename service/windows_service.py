@@ -1,11 +1,16 @@
 import sys
+from pathlib import Path
 import win32event
 import win32service
 import win32serviceutil
 import servicemanager
 
-from service.ipc_server import NamedPipeIPCServer
+# Garantiza que la raíz del proyecto (os_context_tuner) esté en sys.path bajo SYSTEM / pythonservice.exe
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
+from service.ipc_server import NamedPipeIPCServer
 
 class OSContextTunerService(win32serviceutil.ServiceFramework):
     _svc_name_ = "OSContextTunerService"

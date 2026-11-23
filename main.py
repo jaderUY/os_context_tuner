@@ -1,9 +1,8 @@
 import json
 import threading
-import time
+
 from pathlib import Path
 from typing import Any, Dict
-
 from communication.api_client import BackendAPIClient
 from communication.ws_client import AgentWebSocketClient
 from core.context_engine import ContextEngine
@@ -18,8 +17,8 @@ CONFIG_PATH = BASE_DIR / "config" / "config.json"
 def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
     if not path.exists():
         return {
-            "api_base_url": "http://127.0.0.1:8000",
-            "ws_url": "ws://127.0.0.1:8000/ws/agent",
+            "api_base_url": "https://oct-backend-api.onrender.com",
+            "ws_url": "wss://oct-backend-api.onrender.com/ws/agent",
             "device_id": "win11-local-dev",
             "access_token": None,
             "recipes_dir": "config/recipes",
@@ -45,7 +44,7 @@ def main() -> None:
     ipc_client = NamedPipeIPCClient()
 
     api_client = BackendAPIClient(
-        base_url=cfg.get("api_base_url", "http://127.0.0.1:8000"),
+        base_url=cfg.get("api_base_url", "https://oct-backend-api.onrender.com"),
         access_token=cfg.get("access_token"),
     )
 
@@ -95,7 +94,7 @@ def main() -> None:
             stop_watcher.wait(interval)
 
     ws_client = AgentWebSocketClient(
-        ws_url=cfg.get("ws_url", "ws://127.0.0.1:8000/ws/agent"),
+        ws_url=cfg.get("ws_url", "wss://oct-backend-api.onrender.com/ws/agent"),
         on_message_callback=handle_ws_message,
     )
     ws_client.start()
@@ -119,3 +118,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    

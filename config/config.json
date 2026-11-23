@@ -1,6 +1,6 @@
 {
-  "api_base_url": "http://127.0.0.1:8000",
-  "ws_url": "ws://127.0.0.1:8000/ws/agent",
+  "api_base_url": "https://oct-backend-api.onrender.com",
+  "ws_url": "wss://oct-backend-api.onrender.com/ws/agent",
   "device_id": "win11-local-dev",
   "access_token": null,
   "recipes_dir": "config/recipes",
