@@ -75,3 +75,4 @@ class AgentWebSocketClient:
                 pass
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=3.0)
+

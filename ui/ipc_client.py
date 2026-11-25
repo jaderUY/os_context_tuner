@@ -62,3 +62,4 @@ class NamedPipeIPCClient:
             }
         except Exception as exc:
             return {"status": "error", "message": str(exc)}
+

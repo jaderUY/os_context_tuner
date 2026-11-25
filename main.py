@@ -13,7 +13,6 @@ from ui.tray_app import OSContextTunerTray
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = BASE_DIR / "config" / "config.json"
 
-
 def load_config(path: Path = CONFIG_PATH) -> Dict[str, Any]:
     if not path.exists():
         return {
@@ -48,17 +47,38 @@ def main() -> None:
         access_token=cfg.get("access_token"),
     )
 
+    config_lock = threading.Lock()
     stop_watcher = threading.Event()
     tray_ref: Dict[str, OSContextTunerTray] = {}
 
     def apply_profile_via_service(profile_name: str) -> None:
+
         resp = ipc_client.send_command({"action": "apply_profile", "profile": profile_name})
         print(f"[Main] Respuesta IPC para perfil '{profile_name}': {resp}")
         tray = tray_ref.get("instance")
+
         if tray and resp.get("status") == "ok":
+
             tray.active_profile = profile_name
             tray.service_status = "Conectado"
             tray._update_visual_state(connected=True)
+
+    def handle_login(email: str, password: str) -> Dict[str, Any]:
+        data = api_client.login(email, password)
+        token = data.get("access_token")
+        if not token:
+            raise ValueError("La respuesta del servidor no incluyó un access_token.")
+
+        with config_lock:
+            cfg["access_token"] = token
+            save_config(cfg)
+
+        tray = tray_ref.get("instance")
+        if tray:
+            tray.set_authenticated(True)
+
+        print("[Main] Sesión iniciada y access_token guardado en config.json.")
+        return data
 
     def handle_ws_message(message: Dict[str, Any]) -> None:
         print(f"[Main] Mensaje recibido por WebSocket: {message}")
@@ -75,7 +95,8 @@ def main() -> None:
 
     def context_watcher_loop() -> None:
         last_applied_recipe = None
-        interval = max(3, int(cfg.get("context_poll_interval_sec", 15)))
+        with config_lock:
+            interval = max(3, int(cfg.get("context_poll_interval_sec", 15)))
 
         while not stop_watcher.is_set():
             try:
@@ -85,7 +106,9 @@ def main() -> None:
                     recipe_name = matched_recipe.get("name")
                     target_plan = matched_recipe.get("settings", {}).get("power_plan")
                     if target_plan and recipe_name != last_applied_recipe:
-                        print(f"[ContextWatcher] Contexto coincide con receta '{recipe_name}' -> '{target_plan}'")
+                        print(
+                            f"[ContextWatcher] Contexto coincide con receta '{recipe_name}' -> '{target_plan}'"
+                        )
                         apply_profile_via_service(target_plan)
                         last_applied_recipe = recipe_name
             except Exception as exc:
@@ -99,12 +122,16 @@ def main() -> None:
     )
     ws_client.start()
 
-    watcher_thread = threading.Thread(target=context_watcher_loop, name="ContextWatcher", daemon=True)
+    watcher_thread = threading.Thread(
+        target=context_watcher_loop, name="ContextWatcher", daemon=True
+    )
     watcher_thread.start()
 
     tray = OSContextTunerTray(
         ipc_client=ipc_client,
         on_sync_requested=handle_sync_requested,
+        on_login_requested=handle_login,
+        initially_authenticated=bool(cfg.get("access_token")),
     )
     tray_ref["instance"] = tray
 
@@ -115,6 +142,7 @@ def main() -> None:
         ws_client.stop()
         print("[Main] Agente detenido limpiamente.")
 
+
 if __name__ == "__main__":
     main()
-    
+
