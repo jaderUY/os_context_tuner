@@ -1,10 +1,12 @@
 import json
+import time
 from typing import Any, Dict
 
 import pywintypes
 import win32con
 import win32file
 import win32pipe
+import winerror
 
 PIPE_NAME = r"\\.\pipe\OSContextTunerPipe"
 BUFFER_SIZE = 65536
@@ -19,7 +21,20 @@ class NamedPipeIPCClient:
 
     def send_command(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            win32pipe.WaitNamedPipe(self.pipe_name, self.timeout_ms)
+            deadline = time.monotonic() + self.timeout_ms / 1000
+            while True:
+                remaining = deadline - time.monotonic()
+                try:
+                    win32pipe.WaitNamedPipe(
+                        self.pipe_name, max(1, int(remaining * 1000))
+                    )
+                    break
+                except pywintypes.error as exc:
+                    retry_in = deadline - time.monotonic()
+                    if exc.winerror != winerror.ERROR_FILE_NOT_FOUND or retry_in <= 0:
+                        raise
+                    time.sleep(min(0.05, retry_in))
+
             handle = win32file.CreateFile(
                 self.pipe_name,
                 win32con.GENERIC_READ | win32con.GENERIC_WRITE,

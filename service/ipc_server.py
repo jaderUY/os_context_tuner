@@ -3,8 +3,10 @@ import threading
 from typing import Callable, Dict, Any, Optional
 
 import pywintypes
+import winerror
 import win32event
 import win32con
+import win32file
 import win32pipe
 import win32process
 import win32security
@@ -96,26 +98,26 @@ class NamedPipeIPCServer:
                 try:
                     win32pipe.ConnectNamedPipe(pipe_handle, overlapped)
                 except pywintypes.error as e:
-                    if e.winerror == 536:  # ERROR_PIPE_CONNECTED
+                    if e.winerror == winerror.ERROR_PIPE_CONNECTED:
                         pass
-                    elif e.winerror == 997:  # ERROR_IO_PENDING
+                    elif e.winerror == winerror.ERROR_IO_PENDING:
                         while not self._stop_event.is_set():
                             rc = win32event.WaitForSingleObject(connect_event, 250)
                             if rc == win32event.WAIT_OBJECT_0:
                                 break
                         if self._stop_event.is_set():
-                            win32con.CancelIoEx(pipe_handle, overlapped)
+                            win32file.CancelIo(pipe_handle)
                             break
                     else:
                         raise
                 finally:
-                    win32con.CloseHandle(connect_event)
+                    win32file.CloseHandle(connect_event)
 
                 if self._stop_event.is_set():
                     break
 
                 # Leer petición del cliente
-                _, raw_data = win32con.ReadFile(pipe_handle, BUFFER_SIZE)
+                _, raw_data = win32file.ReadFile(pipe_handle, BUFFER_SIZE)
                 if raw_data:
                     try:
                         request_data = json.loads(raw_data.decode("utf-8"))
@@ -126,9 +128,9 @@ class NamedPipeIPCServer:
                         response_data = {"status": "error", "message": str(exc)}
 
                     encoded_resp = json.dumps(response_data).encode("utf-8")
-                    win32con.WriteFile(pipe_handle, encoded_resp)
+                    win32file.WriteFile(pipe_handle, encoded_resp)
 
-                win32pipe.FlushFileBuffers(pipe_handle)
+                win32file.FlushFileBuffers(pipe_handle)
 
             except pywintypes.error as e:
                 if not self._stop_event.is_set():
@@ -139,7 +141,7 @@ class NamedPipeIPCServer:
                         win32pipe.DisconnectNamedPipe(pipe_handle)
                     except pywintypes.error:
                         pass
-                    win32con.CloseHandle(pipe_handle)
+                    win32file.CloseHandle(pipe_handle)
 
     def start(self):
         if self._thread and self._thread.is_alive():

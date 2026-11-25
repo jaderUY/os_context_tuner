@@ -115,7 +115,6 @@ def main() -> None:
         ws_client.stop()
         print("[Main] Agente detenido limpiamente.")
 
-
 if __name__ == "__main__":
     main()
     
